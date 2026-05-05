@@ -24,7 +24,7 @@
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="p-6 border-b border-gray-100">
                 <h2 class="text-lg font-bold">Data Absensi Hari Ini</h2>
-                <p class="text-sm text-gray-500">Data ini akan otomatis terhapus dalam 24 jam.</p>
+                <p class="text-sm text-gray-500">Pemantauan kegiatan lapangan secara realtime.</p>
             </div>
             
             <div class="overflow-x-auto">
@@ -81,10 +81,8 @@
                     </td>
                     <td class="p-4">${data.lokasi ? data.lokasi.jarak + ' meter' : '-'}</td>
                     <td class="p-4">
-                        <a href="${data.fotoUrl}" target="_blank" class="text-primary hover:underline text-xs flex items-center gap-1">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                            Lihat Foto
-                        </a>
+                        <!-- INI BAGIAN YANG DIUBAH MENJADI TAG IMAGE -->
+                        <img src="${data.fotoUrl}" alt="Bukti Foto" class="h-16 w-16 object-cover rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:scale-[3] hover:-translate-x-4 transition-transform duration-300">
                     </td>
                 `;
                 tableBody.appendChild(tr);
