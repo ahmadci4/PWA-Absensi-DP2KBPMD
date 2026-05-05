@@ -3,138 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi Lapangan PWA</title>
+    <title>Ruang Kegiatan DP2KBPMD</title>
     
-    <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0ea5e9">
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Custom Tailwind Config -->
     <script>
         tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#0ea5e9', // Sky blue
-                        secondary: '#14b8a6', // Tosca
-                        accent: '#fef08a', // Soft Yellow
-                    }
-                }
-            }
+            theme: { extend: { colors: { primary: '#0ea5e9', secondary: '#14b8a6', accent: '#fef08a', bglight: '#f8fafc' } } }
         }
     </script>
 
-    <!-- Firebase SDK (Modular v9) -->
     <script type="module" src="./js/firebase-app.js" defer></script>
     <script type="module" src="./js/auth.js" defer></script>
     <script type="module" src="./js/app.js" defer></script>
 
     <style>
-        .glass-card {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
-            border-radius: 1.5rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Sembunyikan scrollbar untuk tampilan mobile yang lebih rapi */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
     </style>
 </head>
-<body class="bg-sky-50 text-gray-800 font-sans antialiased min-h-screen">
+<body class="bg-bglight text-gray-800 font-sans antialiased min-h-screen">
 
-    <!-- SCREEN 1: LOGIN (Device Binding) -->
+    <!-- ==================== SCREEN 1: LOGIN ==================== -->
     <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4 fade-in">
-        <div class="glass-card w-full max-w-md p-8">
+        <div class="glass-card w-full max-w-md p-8 rounded-3xl shadow-lg border border-sky-100">
             <div class="text-center mb-8">
                 <div class="bg-primary/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <svg class="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                 </div>
-                <h1 class="text-2xl font-bold text-gray-800">Registrasi Perangkat</h1>
-                <p class="text-sm text-gray-500 mt-2">Satu perangkat hanya untuk satu pengguna</p>
+                <h1 class="text-2xl font-bold text-gray-800">Ruang Kegiatan</h1>
+                <p class="text-sm text-gray-500 mt-2">Jejaring Internal SPMD & PLKB</p>
             </div>
-
             <form id="loginForm" class="space-y-5">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
-                    <input type="text" id="userName" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" placeholder="Contoh: Ahmad Yani">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Jabatan / Role</label>
-                    <select id="userRole" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white">
-                        <option value="" disabled selected>Pilih Jabatan</option>
-                        <option value="SPMD">SPMD</option>
-                        <option value="PLKB">PLKB</option>
-                        <option value="PKB">PKB</option>
-                    </select>
-                </div>
-                <button type="submit" class="w-full bg-primary hover:bg-sky-600 text-white font-bold py-3.5 rounded-xl shadow-md transition-all active:scale-95">
-                    Daftar & Masuk
-                </button>
+                <input type="text" id="userName" required class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary outline-none" placeholder="Nama Lengkap Anda">
+                <select id="userRole" required class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary outline-none bg-white">
+                    <option value="" disabled selected>Pilih Jabatan</option>
+                    <option value="SPMD">SPMD</option>
+                    <option value="PLKB">PLKB</option>
+                    <option value="PKB">PKB</option>
+                    <option value="Pimpinan">Pimpinan</option>
+                </select>
+                <button type="submit" class="w-full bg-primary hover:bg-sky-600 text-white font-bold py-3.5 rounded-xl shadow-md transition-all active:scale-95">Masuk Aplikasi</button>
             </form>
         </div>
     </div>
 
-    <!-- SCREEN 2: DASHBOARD USER -->
-    <div id="dashboardScreen" class="hidden min-h-screen flex-col pb-20 fade-in">
-        <!-- Header -->
-        <header class="bg-primary text-white p-6 rounded-b-3xl shadow-md">
-            <div class="flex justify-between items-center">
-                <div>
-                    <p class="text-sky-100 text-sm">Selamat datang,</p>
-                    <h2 id="greetName" class="text-xl font-bold">Nama User</h2>
-                    <p id="greetRole" class="text-xs bg-white/20 inline-block px-2 py-1 rounded-md mt-1">Jabatan</p>
-                </div>
-                <div class="bg-white/20 p-2 rounded-xl">
-                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                </div>
+    <!-- ==================== SCREEN 2: MAIN APP ==================== -->
+    <div id="dashboardScreen" class="hidden min-h-screen flex-col pb-20 max-w-lg mx-auto bg-white shadow-xl relative">
+        
+        <!-- HEADER UTAMA -->
+        <header class="bg-primary text-white p-4 sticky top-0 z-40 shadow-sm flex justify-between items-center rounded-b-2xl">
+            <div>
+                <p class="text-sky-100 text-[11px] uppercase tracking-wider">Aplikasi Internal</p>
+                <h2 id="greetName" class="text-lg font-bold leading-tight">Nama</h2>
             </div>
+            <button id="btnUploadKegiatan" class="bg-white text-primary p-2.5 rounded-full shadow-sm hover:bg-sky-50 active:scale-95 transition-all">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            </button>
         </header>
 
-        <!-- Main Content -->
-        <main class="flex-1 p-4 -mt-4">
-            <!-- Status Card -->
-            <div class="glass-card p-5 mb-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h3 class="font-bold text-gray-800">Status Hari Ini</h3>
-                        <p id="absenStatus" class="text-sm text-gray-500">Belum Absen Masuk</p>
-                    </div>
-                    <div id="statusBadge" class="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold">
-                        Pending
-                    </div>
+        <!-- TAB 1: BERANDA (FEED) -->
+        <main id="tabBeranda" class="flex-1 p-4 bg-bglight fade-in">
+            <h3 class="font-bold text-gray-800 mb-4 px-1 text-sm border-b border-gray-200 pb-2">Beranda Kegiatan</h3>
+            <div id="timelineContainer" class="space-y-6">
+                <!-- Data Feed akan dimuat di sini oleh JS -->
+            </div>
+        </main>
+
+        <!-- TAB 2: DIREKTORI (FILTER JABATAN) -->
+        <main id="tabDirektori" class="hidden flex-1 p-4 bg-bglight fade-in">
+            <h3 class="font-bold text-gray-800 mb-4 px-1 text-sm border-b border-gray-200 pb-2">Filter Kegiatan Berdasarkan Jabatan</h3>
+            
+            <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+                <button class="filter-btn active bg-primary text-white px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap shadow-sm" data-role="Semua">Semua</button>
+                <button class="filter-btn bg-white text-gray-600 border border-gray-200 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap" data-role="SPMD">SPMD</button>
+                <button class="filter-btn bg-white text-gray-600 border border-gray-200 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap" data-role="PLKB">PLKB</button>
+                <button class="filter-btn bg-white text-gray-600 border border-gray-200 px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap" data-role="PKB">PKB</button>
+            </div>
+
+            <div id="direktoriContainer" class="space-y-6">
+                <!-- Data Filter akan dimuat di sini oleh JS -->
+            </div>
+        </main>
+
+        <!-- TAB 3: NOTIFIKASI -->
+        <main id="tabNotifikasi" class="hidden flex-1 p-4 bg-bglight fade-in">
+            <h3 class="font-bold text-gray-800 mb-4 px-1 text-sm border-b border-gray-200 pb-2">Notifikasi Interaksi</h3>
+            <div id="notifikasiContainer" class="space-y-3">
+                <!-- Data Notifikasi akan dimuat di sini oleh JS -->
+            </div>
+        </main>
+
+        <!-- BOTTOM NAVIGATION -->
+        <nav class="fixed bottom-0 w-full max-w-lg bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center z-40 pb-safe">
+            <button id="navBeranda" class="nav-item text-primary flex flex-col items-center transition-colors">
+                <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
+                <span class="text-[10px] font-semibold mt-1">Beranda</span>
+            </button>
+            <button id="navDirektori" class="nav-item text-gray-400 hover:text-primary flex flex-col items-center transition-colors">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                <span class="text-[10px] font-semibold mt-1">Kategori</span>
+            </button>
+            <button id="navNotifikasi" class="nav-item text-gray-400 hover:text-primary flex flex-col items-center transition-colors relative">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                <span id="notifBadge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-white">New</span>
+                <span class="text-[10px] font-semibold mt-1">Notifikasi</span>
+            </button>
+        </nav>
+
+        <!-- ==================== MODAL KOMENTAR ==================== -->
+        <div id="modalKomentar" class="hidden fixed inset-0 bg-black/60 z-[100] flex flex-col justify-end fade-in">
+            <div class="bg-white w-full max-w-lg mx-auto rounded-t-3xl h-[75vh] flex flex-col shadow-2xl">
+                <!-- Modal Header -->
+                <div class="flex justify-between items-center p-4 border-b border-gray-100">
+                    <h3 class="font-bold text-gray-800">Komentar</h3>
+                    <button id="btnCloseModal" class="bg-gray-100 p-2 rounded-full text-gray-600 hover:bg-gray-200">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <!-- Area Daftar Komentar -->
+                <div id="listKomentar" class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+                    <!-- Komentar diload di sini -->
+                </div>
+                <!-- Area Tulis Komentar -->
+                <div class="p-4 border-t border-gray-200 bg-white pb-safe">
+                    <form id="formKomentar" class="flex items-center gap-2">
+                        <input type="hidden" id="activePostId">
+                        <input type="text" id="inputKomentar" required class="flex-1 bg-gray-100 rounded-full px-4 py-3 outline-none text-sm focus:ring-2 focus:ring-primary" placeholder="Tulis komentar...">
+                        <button type="submit" class="bg-primary text-white p-3 rounded-full hover:bg-sky-600 active:scale-95 transition-transform">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
+                        </button>
+                    </form>
                 </div>
             </div>
+        </div>
 
-            <!-- Action Buttons -->
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <button id="btnAbsenMasuk" class="bg-secondary hover:bg-teal-600 text-white p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center transition-all active:scale-95">
-                    <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
-                    <span class="font-semibold">Absen Masuk</span>
-                </button>
-                <button id="btnAbsenPulang" class="bg-rose-500 hover:bg-rose-600 text-white p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center transition-all active:scale-95 opacity-50 pointer-events-none">
-                    <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    <span class="font-semibold">Absen Pulang</span>
-                </button>
-            </div>
-
-            <!-- Upload Kegiatan Button -->
-            <button id="btnUploadKegiatan" class="w-full glass-card border-2 border-dashed border-primary text-primary p-4 rounded-2xl flex items-center justify-center space-x-2 hover:bg-sky-50 transition-all active:scale-95">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                <span class="font-bold">Upload Kegiatan (Timeline)</span>
-            </button>
-        </main>
     </div>
 
-    <!-- Pendaftaran Service Worker -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Reg failed:', err));
-            });
-        }
-    </script>
 </body>
 </html>
