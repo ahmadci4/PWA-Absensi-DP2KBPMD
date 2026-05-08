@@ -1,9 +1,10 @@
 // js/app.js
 import { db } from './firebase-app.js';
-import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, where, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { checkDeviceAuth, registerDevice, updateProfileData } from './auth.js';
 import { getCurrentLocation } from './location.js';
 import { openCameraAndCapture } from './camera.js';
+import { getDriveLinkByName } from './drive.js'; // Memanggil fungsi GDrive
 
 // === ELEMENT DOM ===
 const loginScreen = document.getElementById('loginScreen');
@@ -20,8 +21,9 @@ const modalKomentar = document.getElementById('modalKomentar');
 const inputCari = document.getElementById('inputCariLaporan');
 
 let currentUser = checkDeviceAuth();
-let activePostId = "";
+let activePostOwnerId = "";
 let unsubscribeMain = null;
+const activePostIdInput = document.getElementById('activePostId');
 
 if (currentUser) showDashboard(currentUser);
 
@@ -58,10 +60,9 @@ function switchTab(target) {
     navs[target].classList.replace('text-gray-400', 'text-primary');
     navs[target].classList.remove('opacity-70');
 }
-
 Object.keys(navs).forEach(k => navs[k].onclick = () => switchTab(k));
 
-// === LOGIKA DATA (BERANDA & LAPORAN) ===
+// === LOGIKA DATA (BERANDA, LAPORAN, REKAP) ===
 function initRealtimeData() {
     const q = query(collection(db, "kegiatan"), orderBy("waktu", "desc"));
     if(unsubscribeMain) unsubscribeMain();
@@ -74,7 +75,7 @@ function initRealtimeData() {
             const d = docSnap.data();
             if(!d.waktu) return;
             const age = now - d.waktu.toDate().getTime();
-            if(age > 86400000) return; // Hapus otomatis 24 jam (Client-side filter)
+            if(age > 86400000) return; // Hapus otomatis 24 jam
 
             allPosts.push({ id: docSnap.id, ...d, totalInteraksi: (d.likes?.length || 0) + (d.komentarCount || 0) });
         });
@@ -105,7 +106,6 @@ function renderRekap(posts) {
     `).join('');
 }
 
-// === DROPDOWN SINEMATIK (LAPORAN) ===
 function renderLaporan(posts) {
     const search = inputCari.value.toLowerCase();
     const filtered = posts.filter(p => p.nama.toLowerCase().includes(search) || p.desa.toLowerCase().includes(search) || p.jabatan.toLowerCase().includes(search));
@@ -121,15 +121,13 @@ function renderLaporan(posts) {
     containers.laporan.innerHTML = Object.keys(structure).map(role => `
         <details class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-3 overflow-hidden group">
             <summary class="p-4 flex justify-between items-center font-bold text-gray-800 cursor-pointer">
-                <span>📁 Kategori ${role}</span>
-                <span class="icon-rotate text-primary">▼</span>
+                <span>📁 Kategori ${role}</span><span class="icon-rotate text-primary">▼</span>
             </summary>
             <div class="px-4 pb-4 space-y-2">
                 ${Object.keys(structure[role]).map(kec => `
                     <details class="border-l-2 border-primary/20 pl-4 py-1 group/kec">
                         <summary class="py-2 text-sm font-bold text-gray-600 cursor-pointer flex justify-between">
-                            <span>📍 Kec. ${kec}</span>
-                            <span class="icon-rotate text-[10px]">▼</span>
+                            <span>📍 Kec. ${kec}</span><span class="icon-rotate text-[10px]">▼</span>
                         </summary>
                         <div class="space-y-2 mt-2">
                             ${Object.keys(structure[role][kec]).map(desa => `
@@ -148,15 +146,15 @@ function renderLaporan(posts) {
 
 inputCari.oninput = () => initRealtimeData();
 
-// === RENDER CARD ===
+// === RENDER KARTU POSTINGAN (DENGAN TOMBOL DOWNLOAD & GDRIVE) ===
 function buildCardHTML(p) {
     const isMyPost = p.deviceId === currentUser.deviceId;
-    const mapsUrl = `https://www.google.com/maps?q=${p.lokasi.lat},${p.lokasi.lng}`;
+    const mapsUrl = `https://www.google.com/maps?q=$${p.lokasi.lat},${p.lokasi.lng}`;
     
     return `
         <div class="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm space-y-3">
             <div class="flex justify-between items-start">
-                <div class="flex items-center gap-3" onclick="window.lihatProfil('${p.deviceId}')">
+                <div class="flex items-center gap-3 cursor-pointer" onclick="window.lihatProfil('${p.deviceId}')">
                     <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold">${p.nama[0]}</div>
                     <div>
                         <h4 class="text-sm font-bold text-gray-800">${p.nama}</h4>
@@ -171,25 +169,52 @@ function buildCardHTML(p) {
                 ` : ''}
             </div>
             <p class="text-sm text-gray-600 px-1">${p.deskripsi}</p>
-            <div class="relative rounded-2xl overflow-hidden border border-gray-50 bg-gray-100">
+            <div class="relative rounded-2xl overflow-hidden border border-gray-50 bg-gray-100 group">
                 <img src="${p.fotoUrl}" class="w-full object-cover max-h-72">
-                <a href="${mapsUrl}" target="_blank" class="absolute bottom-3 right-3 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm flex items-center gap-1">📍 Lihat Lokasi</a>
+                <a href="${mapsUrl}" target="_blank" class="absolute bottom-3 right-3 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm flex items-center gap-1">📍 Map Lokasi</a>
             </div>
+            
             <div class="flex items-center gap-4 px-1 pt-1">
                 <button onclick="window.toggleLike('${p.id}', '${p.deviceId}', ${(p.likes || []).includes(currentUser.deviceId)})" class="text-xs font-bold flex items-center gap-1 ${(p.likes || []).includes(currentUser.deviceId) ? 'text-rose-500' : 'text-gray-400'}">❤️ ${p.likes?.length || 0}</button>
                 <button onclick="window.bukaKomentar('${p.id}', '${p.deviceId}')" class="text-xs font-bold text-gray-400 flex items-center gap-1">💬 ${p.komentarCount || 0}</button>
                 <span class="ml-auto text-[10px] text-gray-300 font-bold">${p.waktu.toDate().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})} WITA</span>
             </div>
+
+            <div class="flex gap-2 pt-3 mt-1 border-t border-gray-50">
+                <button onclick="window.downloadFoto('${p.fotoUrl}', '${p.nama}')" class="flex-1 bg-sky-50 text-primary py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all">
+                    <span>⬇️</span> Simpan Foto
+                </button>
+                <button onclick="window.uploadToDrive('${p.nama}')" class="flex-1 bg-orange-50 text-orange-600 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all">
+                    <span>☁️</span> Upload Drive
+                </button>
+            </div>
         </div>
     `;
 }
 
-// === FUNGSI GLOBAL ===
-window.hapusPost = async (id) => { if(confirm("Hapus laporan ini?")) await deleteDoc(doc(db, "kegiatan", id)); };
-window.editPost = async (id, old) => { 
-    const val = prompt("Edit deskripsi laporan:", old); 
-    if(val) await updateDoc(doc(db, "kegiatan", id), { deskripsi: val }); 
+// === FUNGSI DOWNLOAD & G-DRIVE (GLOBAL) ===
+window.downloadFoto = (base64Data, namaUser) => {
+    const a = document.createElement('a');
+    a.href = base64Data;
+    const tgl = new Date().toISOString().split('T')[0];
+    a.download = `Dokumentasi_${namaUser.replace(/\s+/g, '_')}_${tgl}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 };
+
+window.uploadToDrive = (namaUser) => {
+    const link = getDriveLinkByName(namaUser);
+    if (link) {
+        window.open(link, '_blank'); // Buka link Drive di tab baru
+    } else {
+        alert(`❌ Maaf, Link Google Drive untuk anggota bernama "${namaUser}" tidak terdaftar di database sistem.`);
+    }
+};
+
+// === FUNGSI GLOBAL LAINNYA ===
+window.hapusPost = async (id) => { if(confirm("Hapus laporan ini permanen?")) await deleteDoc(doc(db, "kegiatan", id)); };
+window.editPost = async (id, old) => { const val = prompt("Edit deskripsi:", old); if(val) await updateDoc(doc(db, "kegiatan", id), { deskripsi: val }); };
 
 window.lihatProfil = async (uid) => {
     modalLihatProfil.classList.remove('hidden');
@@ -201,25 +226,52 @@ window.lihatProfil = async (uid) => {
         document.getElementById('viewProfilBio').textContent = d.bio || "Tidak ada bio.";
         document.getElementById('viewProfilInisial').textContent = d.name[0];
         document.getElementById('viewProfilSosmed').innerHTML = `
-            <a href="https://wa.me/${d.sosmed?.wa}" class="p-2 bg-green-500 text-white rounded-full text-xs">WA</a>
-            <a href="${d.sosmed?.ig}" class="p-2 bg-pink-500 text-white rounded-full text-xs">IG</a>
+            <a href="https://wa.me/${d.sosmed?.wa}" target="_blank" class="p-3 bg-green-500 text-white rounded-full text-xs shadow-md">WA</a>
+            <a href="${d.sosmed?.ig}" target="_blank" class="p-3 bg-pink-500 text-white rounded-full text-xs shadow-md">IG</a>
         `;
     }
 };
 document.getElementById('btnTutupProfil').onclick = () => modalLihatProfil.classList.add('hidden');
 
+// === KOMENTAR & LIKE ===
+window.toggleLike = async (postId, postOwnerId, isLiked) => {
+    const postRef = doc(db, "kegiatan", postId);
+    if (isLiked) { await updateDoc(postRef, { likes: arrayRemove(currentUser.deviceId) }); } 
+    else { await updateDoc(postRef, { likes: arrayUnion(currentUser.deviceId) }); }
+};
+
+window.bukaKomentar = (postId, postOwnerId) => {
+    activePostIdInput.value = postId; activePostOwnerId = postOwnerId;
+    modalKomentar.classList.remove('hidden');
+    const qKom = query(collection(db, "kegiatan", postId, "komentar"), orderBy("waktu", "asc"));
+    onSnapshot(qKom, (snapshot) => {
+        const listKomentar = document.getElementById('listKomentar');
+        listKomentar.innerHTML = '';
+        snapshot.forEach(docSnap => {
+            const kom = docSnap.data();
+            listKomentar.innerHTML += `<div class="bg-white p-3 rounded-2xl border border-gray-100 w-[90%]"><p class="font-bold text-[11px] text-primary">${kom.nama}</p><p class="text-sm text-gray-700">${kom.teks}</p></div>`;
+        });
+        listKomentar.scrollTop = listKomentar.scrollHeight;
+    });
+};
+document.getElementById('btnCloseModal').onclick = () => modalKomentar.classList.add('hidden');
+document.getElementById('formKomentar').onsubmit = async (e) => {
+    e.preventDefault(); const teks = document.getElementById('inputKomentar').value; const postId = activePostIdInput.value;
+    if(!teks || !postId) return; document.getElementById('inputKomentar').value = '';
+    await addDoc(collection(db, "kegiatan", postId, "komentar"), { nama: currentUser.name, teks: teks, waktu: serverTimestamp() });
+    const snap = await getDoc(doc(db, "kegiatan", postId));
+    await updateDoc(doc(db, "kegiatan", postId), { komentarCount: (snap.data().komentarCount || 0) + 1 });
+};
+
 // === LOGOUT & PROFIL ===
 document.getElementById('btnLogout').onclick = () => { if(confirm("Keluar aplikasi?")){ localStorage.clear(); location.reload(); }};
-
 document.getElementById('formProfil').onsubmit = async (e) => {
     e.preventDefault();
     const up = { bio: document.getElementById('editBio').value, sosmed: { wa: document.getElementById('editWA').value, ig: document.getElementById('editIG').value } };
     currentUser = updateProfileData(up);
     await updateDoc(doc(db, "users", currentUser.deviceId), up);
-    alert("Profil diperbarui!");
-    loadProfilData(currentUser);
+    alert("Profil berhasil diperbarui!"); loadProfilData(currentUser);
 };
-
 function loadProfilData(u) {
     document.getElementById('profilNama').textContent = u.name;
     document.getElementById('profilJabatan').textContent = u.role;
@@ -227,14 +279,21 @@ function loadProfilData(u) {
     document.getElementById('profilInisial').textContent = u.name[0];
 }
 
-// === UPLOAD LAPORAN ===
+// === UPLOAD LAPORAN KAMERA ===
 btnUploadKegiatan.onclick = async () => {
-    const desc = prompt("Buat dokumentasi laporan:");
+    const desc = prompt("📝 Buat dokumentasi laporan:");
     if(!desc) return;
-    const loc = await getCurrentLocation();
-    const foto = await openCameraAndCapture(currentUser, loc);
-    await addDoc(collection(db, "kegiatan"), {
-        deviceId: currentUser.deviceId, nama: currentUser.name, jabatan: currentUser.role, kecamatan: currentUser.kecamatan, desa: currentUser.desa,
-        deskripsi: desc, fotoUrl: foto, lokasi: loc, waktu: serverTimestamp(), likes: [], komentarCount: 0
-    });
+    const btnContent = btnUploadKegiatan.innerHTML;
+    btnUploadKegiatan.innerHTML = `<span class="animate-spin text-sm">⌛</span>`;
+    btnUploadKegiatan.classList.add('pointer-events-none');
+    try {
+        const loc = await getCurrentLocation();
+        const foto = await openCameraAndCapture(currentUser, loc);
+        await addDoc(collection(db, "kegiatan"), {
+            deviceId: currentUser.deviceId, nama: currentUser.name, jabatan: currentUser.role, kecamatan: currentUser.kecamatan, desa: currentUser.desa,
+            deskripsi: desc, fotoUrl: foto, lokasi: loc, waktu: serverTimestamp(), likes: [], komentarCount: 0
+        });
+        switchTab('beranda');
+        btnUploadKegiatan.innerHTML = btnContent; btnUploadKegiatan.classList.remove('pointer-events-none');
+    } catch (e) { alert(e); btnUploadKegiatan.innerHTML = btnContent; btnUploadKegiatan.classList.remove('pointer-events-none'); }
 };
