@@ -4,7 +4,7 @@ import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, u
 import { checkDeviceAuth, registerDevice, updateProfileData } from './auth.js';
 import { getCurrentLocation } from './location.js';
 import { openCameraAndCapture } from './camera.js';
-import { getDriveLinkByName } from './drive.js'; // Memanggil fungsi GDrive
+import { getDriveLinkByName } from './drive.js'; 
 
 // === ELEMENT DOM ===
 const loginScreen = document.getElementById('loginScreen');
@@ -73,66 +73,80 @@ function initRealtimeData() {
 
         snapshot.forEach(docSnap => {
             const d = docSnap.data();
-            if(!d.waktu) return;
-            const age = now - d.waktu.toDate().getTime();
-            if(age > 86400000) return; // Hapus otomatis 24 jam
+            // PERBAIKAN BUG WAKTU: Jika baru diupload, gunakan waktu lokal sementara
+            const postTime = d.waktu ? d.waktu.toDate().getTime() : now;
+            const age = now - postTime;
+            
+            // Sembunyikan yang lebih dari 24 Jam
+            if(age > 86400000) return; 
 
-            allPosts.push({ id: docSnap.id, ...d, totalInteraksi: (d.likes?.length || 0) + (d.komentarCount || 0) });
+            allPosts.push({ 
+                id: docSnap.id, 
+                ...d, 
+                waktuMs: postTime,
+                waktuTampil: d.waktu ? d.waktu.toDate().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) : 'Baru saja',
+                totalInteraksi: (d.likes?.length || 0) + (d.komentarCount || 0) 
+            });
         });
 
-        // 1. Beranda: Urutkan berdasarkan Interaksi Terbanyak
-        const berandaPosts = [...allPosts].sort((a, b) => b.totalInteraksi - a.totalInteraksi);
+        // Beranda: Interaksi Terbanyak di atas, baru berdasarkan waktu
+        const berandaPosts = [...allPosts].sort((a, b) => {
+            if(b.totalInteraksi !== a.totalInteraksi) return b.totalInteraksi - a.totalInteraksi;
+            return b.waktuMs - a.waktuMs;
+        });
+        
         renderBeranda(berandaPosts);
-
-        // 2. Rekap & Laporan
         renderRekap(allPosts);
         renderLaporan(allPosts);
+    }, (error) => {
+        console.error("Error Realtime:", error);
     });
 }
 
 function renderBeranda(posts) {
-    containers.beranda.innerHTML = posts.map(p => buildCardHTML(p)).join('');
+    containers.beranda.innerHTML = posts.length > 0 ? posts.map(p => buildCardHTML(p)).join('') : `<p class="text-center text-gray-400 py-10">Belum ada laporan.</p>`;
 }
 
 function renderRekap(posts) {
     containers.rekap.innerHTML = posts.map(p => `
         <tr class="border-b border-gray-50">
             <td class="p-3">
-                <p class="font-bold text-gray-800">${p.nama}</p>
-                <p class="text-[10px] text-gray-400">${p.kecamatan} - ${p.desa}</p>
+                <p class="font-bold text-gray-800">${p.nama || 'Tanpa Nama'}</p>
+                <p class="text-[10px] text-gray-400">${p.kecamatan || '-'} - ${p.desa || '-'}</p>
             </td>
-            <td class="p-3 text-right font-bold text-primary">${p.waktu.toDate().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
+            <td class="p-3 text-right font-bold text-primary">${p.waktuTampil} WITA</td>
         </tr>
     `).join('');
 }
 
 function renderLaporan(posts) {
     const search = inputCari.value.toLowerCase();
-    const filtered = posts.filter(p => p.nama.toLowerCase().includes(search) || p.desa.toLowerCase().includes(search) || p.jabatan.toLowerCase().includes(search));
+    const filtered = posts.filter(p => (p.nama || "").toLowerCase().includes(search) || (p.desa || "").toLowerCase().includes(search) || (p.jabatan || "").toLowerCase().includes(search));
     
     let structure = {};
     filtered.forEach(p => {
-        if(!structure[p.jabatan]) structure[p.jabatan] = {};
-        if(!structure[p.jabatan][p.kecamatan]) structure[p.jabatan][p.kecamatan] = {};
-        if(!structure[p.jabatan][p.kecamatan][p.desa]) structure[p.jabatan][p.kecamatan][p.desa] = [];
-        structure[p.jabatan][p.kecamatan][p.desa].push(p);
+        const j = p.jabatan || 'Lainnya'; const k = p.kecamatan || 'Lainnya'; const d = p.desa || 'Lainnya';
+        if(!structure[j]) structure[j] = {};
+        if(!structure[j][k]) structure[j][k] = {};
+        if(!structure[j][k][d]) structure[j][k][d] = [];
+        structure[j][k][d].push(p);
     });
 
     containers.laporan.innerHTML = Object.keys(structure).map(role => `
         <details class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-3 overflow-hidden group">
-            <summary class="p-4 flex justify-between items-center font-bold text-gray-800 cursor-pointer">
+            <summary class="p-4 flex justify-between items-center font-bold text-gray-800 cursor-pointer outline-none">
                 <span>📁 Kategori ${role}</span><span class="icon-rotate text-primary">▼</span>
             </summary>
             <div class="px-4 pb-4 space-y-2">
                 ${Object.keys(structure[role]).map(kec => `
                     <details class="border-l-2 border-primary/20 pl-4 py-1 group/kec">
-                        <summary class="py-2 text-sm font-bold text-gray-600 cursor-pointer flex justify-between">
+                        <summary class="py-2 text-sm font-bold text-gray-600 cursor-pointer flex justify-between outline-none">
                             <span>📍 Kec. ${kec}</span><span class="icon-rotate text-[10px]">▼</span>
                         </summary>
                         <div class="space-y-2 mt-2">
                             ${Object.keys(structure[role][kec]).map(desa => `
                                 <details class="bg-slate-50 rounded-xl p-1 group/desa">
-                                    <summary class="p-2 text-xs font-bold text-secondary cursor-pointer">🏘️ Desa ${desa}</summary>
+                                    <summary class="p-2 text-xs font-bold text-secondary cursor-pointer outline-none">🏘️ Desa ${desa}</summary>
                                     <div class="p-2 space-y-4">${structure[role][kec][desa].map(p => buildCardHTML(p)).join('')}</div>
                                 </details>
                             `).join('')}
@@ -146,42 +160,44 @@ function renderLaporan(posts) {
 
 inputCari.oninput = () => initRealtimeData();
 
-// === RENDER KARTU POSTINGAN (DENGAN TOMBOL DOWNLOAD & GDRIVE) ===
+// === RENDER KARTU POSTINGAN ===
 function buildCardHTML(p) {
     const isMyPost = p.deviceId === currentUser.deviceId;
-    const mapsUrl = `https://www.google.com/maps?q=$${p.lokasi.lat},${p.lokasi.lng}`;
+    // PERBAIKAN BUG MAPS: Menggunakan link Google Maps standar yang pasti berfungsi
+    const mapsUrl = `https://www.google.com/maps?q=${p.lokasi.lat},${p.lokasi.lng}`;
     
     return `
         <div class="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm space-y-3">
             <div class="flex justify-between items-start">
                 <div class="flex items-center gap-3 cursor-pointer" onclick="window.lihatProfil('${p.deviceId}')">
-                    <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold">${p.nama[0]}</div>
+                    <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold">${p.nama ? p.nama[0] : 'A'}</div>
                     <div>
-                        <h4 class="text-sm font-bold text-gray-800">${p.nama}</h4>
-                        <p class="text-[10px] text-primary font-bold uppercase">${p.jabatan}</p>
+                        <h4 class="text-sm font-bold text-gray-800">${p.nama || 'Tanpa Nama'}</h4>
+                        <p class="text-[10px] text-primary font-bold uppercase">${p.jabatan || 'Anggota'}</p>
                     </div>
                 </div>
                 ${isMyPost ? `
                     <div class="flex gap-2">
-                        <button onclick="window.editPost('${p.id}', '${p.deskripsi}')" class="text-gray-400 text-xs">Edit</button>
-                        <button onclick="window.hapusPost('${p.id}')" class="text-rose-400 text-xs font-bold">Hapus</button>
+                        <button onclick="window.editPost('${p.id}', '${p.deskripsi}')" class="text-gray-400 text-xs px-2 py-1 bg-gray-50 rounded">Edit</button>
+                        <button onclick="window.hapusPost('${p.id}')" class="text-rose-400 text-xs font-bold px-2 py-1 bg-rose-50 rounded">Hapus</button>
                     </div>
                 ` : ''}
             </div>
-            <p class="text-sm text-gray-600 px-1">${p.deskripsi}</p>
-            <div class="relative rounded-2xl overflow-hidden border border-gray-50 bg-gray-100 group">
-                <img src="${p.fotoUrl}" class="w-full object-cover max-h-72">
-                <a href="${mapsUrl}" target="_blank" class="absolute bottom-3 right-3 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm flex items-center gap-1">📍 Map Lokasi</a>
+            <p class="text-sm text-gray-600 px-1">${p.deskripsi || ''}</p>
+            
+            <div class="relative rounded-2xl overflow-hidden border border-gray-50 bg-gray-100">
+                <img src="${p.fotoUrl}" class="w-full object-cover max-h-72" loading="lazy">
+                <a href="${mapsUrl}" target="_blank" class="absolute bottom-3 right-3 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm flex items-center gap-1 text-gray-800">📍 Buka Map</a>
             </div>
             
             <div class="flex items-center gap-4 px-1 pt-1">
                 <button onclick="window.toggleLike('${p.id}', '${p.deviceId}', ${(p.likes || []).includes(currentUser.deviceId)})" class="text-xs font-bold flex items-center gap-1 ${(p.likes || []).includes(currentUser.deviceId) ? 'text-rose-500' : 'text-gray-400'}">❤️ ${p.likes?.length || 0}</button>
                 <button onclick="window.bukaKomentar('${p.id}', '${p.deviceId}')" class="text-xs font-bold text-gray-400 flex items-center gap-1">💬 ${p.komentarCount || 0}</button>
-                <span class="ml-auto text-[10px] text-gray-300 font-bold">${p.waktu.toDate().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})} WITA</span>
+                <span class="ml-auto text-[10px] text-gray-300 font-bold">${p.waktuTampil}</span>
             </div>
 
             <div class="flex gap-2 pt-3 mt-1 border-t border-gray-50">
-                <button onclick="window.downloadFoto('${p.fotoUrl}', '${p.nama}')" class="flex-1 bg-sky-50 text-primary py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all">
+                <button onclick="window.downloadFoto('${p.fotoUrl}', '${p.nama || 'Foto'}')" class="flex-1 bg-sky-50 text-primary py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all">
                     <span>⬇️</span> Simpan Foto
                 </button>
                 <button onclick="window.uploadToDrive('${p.nama}')" class="flex-1 bg-orange-50 text-orange-600 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all">
@@ -197,7 +213,7 @@ window.downloadFoto = (base64Data, namaUser) => {
     const a = document.createElement('a');
     a.href = base64Data;
     const tgl = new Date().toISOString().split('T')[0];
-    a.download = `Dokumentasi_${namaUser.replace(/\s+/g, '_')}_${tgl}.jpg`;
+    a.download = `Laporan_${namaUser.replace(/\s+/g, '_')}_${tgl}.jpg`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -206,9 +222,9 @@ window.downloadFoto = (base64Data, namaUser) => {
 window.uploadToDrive = (namaUser) => {
     const link = getDriveLinkByName(namaUser);
     if (link) {
-        window.open(link, '_blank'); // Buka link Drive di tab baru
+        window.open(link, '_blank');
     } else {
-        alert(`❌ Maaf, Link Google Drive untuk anggota bernama "${namaUser}" tidak terdaftar di database sistem.`);
+        alert(`❌ Maaf, Link Google Drive untuk nama "${namaUser}" tidak ditemukan. Pastikan nama di profil sesuai dengan data pusat.`);
     }
 };
 
@@ -221,13 +237,13 @@ window.lihatProfil = async (uid) => {
     const s = await getDoc(doc(db, "users", uid));
     if(s.exists()){
         const d = s.data();
-        document.getElementById('viewProfilNama').textContent = d.name;
-        document.getElementById('viewProfilJabatan').textContent = d.role;
+        document.getElementById('viewProfilNama').textContent = d.name || "Tanpa Nama";
+        document.getElementById('viewProfilJabatan').textContent = d.role || "Anggota";
         document.getElementById('viewProfilBio').textContent = d.bio || "Tidak ada bio.";
-        document.getElementById('viewProfilInisial').textContent = d.name[0];
+        document.getElementById('viewProfilInisial').textContent = d.name ? d.name[0] : "A";
         document.getElementById('viewProfilSosmed').innerHTML = `
-            <a href="https://wa.me/${d.sosmed?.wa}" target="_blank" class="p-3 bg-green-500 text-white rounded-full text-xs shadow-md">WA</a>
-            <a href="${d.sosmed?.ig}" target="_blank" class="p-3 bg-pink-500 text-white rounded-full text-xs shadow-md">IG</a>
+            ${d.sosmed?.wa ? `<a href="https://wa.me/${d.sosmed.wa}" target="_blank" class="p-3 bg-green-500 text-white rounded-full text-xs shadow-md">WA</a>` : ''}
+            ${d.sosmed?.ig ? `<a href="${d.sosmed.ig}" target="_blank" class="p-3 bg-pink-500 text-white rounded-full text-xs shadow-md">IG</a>` : ''}
         `;
     }
 };
@@ -276,7 +292,7 @@ function loadProfilData(u) {
     document.getElementById('profilNama').textContent = u.name;
     document.getElementById('profilJabatan').textContent = u.role;
     document.getElementById('profilBio').textContent = u.bio || "Ketuk edit untuk menambah bio.";
-    document.getElementById('profilInisial').textContent = u.name[0];
+    document.getElementById('profilInisial').textContent = u.name ? u.name[0] : "A";
 }
 
 // === UPLOAD LAPORAN KAMERA ===
@@ -295,5 +311,5 @@ btnUploadKegiatan.onclick = async () => {
         });
         switchTab('beranda');
         btnUploadKegiatan.innerHTML = btnContent; btnUploadKegiatan.classList.remove('pointer-events-none');
-    } catch (e) { alert(e); btnUploadKegiatan.innerHTML = btnContent; btnUploadKegiatan.classList.remove('pointer-events-none'); }
+    } catch (e) { alert("Pengambilan foto dibatalkan / Gagal: " + e); btnUploadKegiatan.innerHTML = btnContent; btnUploadKegiatan.classList.remove('pointer-events-none'); }
 };
