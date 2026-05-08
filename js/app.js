@@ -70,15 +70,17 @@ function initRealtimeData() {
     unsubscribeMain = onSnapshot(q, (snapshot) => {
         const allPosts = [];
         const now = new Date().getTime();
+        // PERBAIKAN: Ubah batas waktu jadi 7 Hari (604.800.000 ms) agar data tidak cepat hilang
+        const batasWaktu = 7 * 24 * 60 * 60 * 1000; 
 
         snapshot.forEach(docSnap => {
             const d = docSnap.data();
-            // PERBAIKAN BUG WAKTU: Jika baru diupload, gunakan waktu lokal sementara
+            // PERBAIKAN BUG WAKTU: Amankan data yang baru saja dikirim dan belum dapat stempel waktu
             const postTime = d.waktu ? d.waktu.toDate().getTime() : now;
             const age = now - postTime;
             
-            // Sembunyikan yang lebih dari 24 Jam
-            if(age > 86400000) return; 
+            // Sembunyikan yang lebih dari 7 Hari
+            if(age > batasWaktu) return; 
 
             allPosts.push({ 
                 id: docSnap.id, 
@@ -89,7 +91,7 @@ function initRealtimeData() {
             });
         });
 
-        // Beranda: Interaksi Terbanyak di atas, baru berdasarkan waktu
+        // Beranda: Interaksi Terbanyak di atas, jika sama urutkan waktu terbaru
         const berandaPosts = [...allPosts].sort((a, b) => {
             if(b.totalInteraksi !== a.totalInteraksi) return b.totalInteraksi - a.totalInteraksi;
             return b.waktuMs - a.waktuMs;
@@ -99,17 +101,17 @@ function initRealtimeData() {
         renderRekap(allPosts);
         renderLaporan(allPosts);
     }, (error) => {
-        console.error("Error Realtime:", error);
+        console.error("Error memuat data:", error);
     });
 }
 
 function renderBeranda(posts) {
-    containers.beranda.innerHTML = posts.length > 0 ? posts.map(p => buildCardHTML(p)).join('') : `<p class="text-center text-gray-400 py-10">Belum ada laporan.</p>`;
+    containers.beranda.innerHTML = posts.length > 0 ? posts.map(p => buildCardHTML(p)).join('') : `<p class="text-center text-gray-400 py-10">Belum ada laporan dalam 7 hari terakhir.</p>`;
 }
 
 function renderRekap(posts) {
     containers.rekap.innerHTML = posts.map(p => `
-        <tr class="border-b border-gray-50">
+        <tr class="border-b border-gray-50 hover:bg-slate-50 transition-colors">
             <td class="p-3">
                 <p class="font-bold text-gray-800">${p.nama || 'Tanpa Nama'}</p>
                 <p class="text-[10px] text-gray-400">${p.kecamatan || '-'} - ${p.desa || '-'}</p>
@@ -163,14 +165,14 @@ inputCari.oninput = () => initRealtimeData();
 // === RENDER KARTU POSTINGAN ===
 function buildCardHTML(p) {
     const isMyPost = p.deviceId === currentUser.deviceId;
-    // PERBAIKAN BUG MAPS: Menggunakan link Google Maps standar yang pasti berfungsi
-    const mapsUrl = `https://www.google.com/maps?q=${p.lokasi.lat},${p.lokasi.lng}`;
+    // PERBAIKAN BUG MAPS: Menggunakan URL resmi Google Maps
+    const mapsUrl = p.lokasi ? `https://www.google.com/maps?q=${p.lokasi.lat},${p.lokasi.lng}` : '#';
     
     return `
         <div class="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm space-y-3">
             <div class="flex justify-between items-start">
                 <div class="flex items-center gap-3 cursor-pointer" onclick="window.lihatProfil('${p.deviceId}')">
-                    <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold">${p.nama ? p.nama[0] : 'A'}</div>
+                    <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold">${p.nama ? p.nama[0].toUpperCase() : 'A'}</div>
                     <div>
                         <h4 class="text-sm font-bold text-gray-800">${p.nama || 'Tanpa Nama'}</h4>
                         <p class="text-[10px] text-primary font-bold uppercase">${p.jabatan || 'Anggota'}</p>
@@ -178,8 +180,8 @@ function buildCardHTML(p) {
                 </div>
                 ${isMyPost ? `
                     <div class="flex gap-2">
-                        <button onclick="window.editPost('${p.id}', '${p.deskripsi}')" class="text-gray-400 text-xs px-2 py-1 bg-gray-50 rounded">Edit</button>
-                        <button onclick="window.hapusPost('${p.id}')" class="text-rose-400 text-xs font-bold px-2 py-1 bg-rose-50 rounded">Hapus</button>
+                        <button onclick="window.editPost('${p.id}', '${p.deskripsi || ''}')" class="text-gray-400 text-xs px-2 py-1 bg-gray-50 rounded hover:bg-gray-200">Edit</button>
+                        <button onclick="window.hapusPost('${p.id}')" class="text-rose-400 text-xs font-bold px-2 py-1 bg-rose-50 rounded hover:bg-rose-100">Hapus</button>
                     </div>
                 ` : ''}
             </div>
@@ -187,20 +189,20 @@ function buildCardHTML(p) {
             
             <div class="relative rounded-2xl overflow-hidden border border-gray-50 bg-gray-100">
                 <img src="${p.fotoUrl}" class="w-full object-cover max-h-72" loading="lazy">
-                <a href="${mapsUrl}" target="_blank" class="absolute bottom-3 right-3 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm flex items-center gap-1 text-gray-800">📍 Buka Map</a>
+                <a href="${mapsUrl}" target="_blank" class="absolute bottom-3 right-3 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm flex items-center gap-1 text-gray-800 hover:bg-white">📍 Buka Map</a>
             </div>
             
             <div class="flex items-center gap-4 px-1 pt-1">
                 <button onclick="window.toggleLike('${p.id}', '${p.deviceId}', ${(p.likes || []).includes(currentUser.deviceId)})" class="text-xs font-bold flex items-center gap-1 ${(p.likes || []).includes(currentUser.deviceId) ? 'text-rose-500' : 'text-gray-400'}">❤️ ${p.likes?.length || 0}</button>
-                <button onclick="window.bukaKomentar('${p.id}', '${p.deviceId}')" class="text-xs font-bold text-gray-400 flex items-center gap-1">💬 ${p.komentarCount || 0}</button>
-                <span class="ml-auto text-[10px] text-gray-300 font-bold">${p.waktuTampil}</span>
+                <button onclick="window.bukaKomentar('${p.id}', '${p.deviceId}')" class="text-xs font-bold text-gray-400 flex items-center gap-1 hover:text-primary">💬 ${p.komentarCount || 0}</button>
+                <span class="ml-auto text-[10px] text-gray-400 font-bold">${p.waktuTampil}</span>
             </div>
 
             <div class="flex gap-2 pt-3 mt-1 border-t border-gray-50">
-                <button onclick="window.downloadFoto('${p.fotoUrl}', '${p.nama || 'Foto'}')" class="flex-1 bg-sky-50 text-primary py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all">
+                <button onclick="window.downloadFoto('${p.fotoUrl}', '${p.nama || 'Foto'}')" class="flex-1 bg-sky-50 text-primary py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all hover:bg-sky-100">
                     <span>⬇️</span> Simpan Foto
                 </button>
-                <button onclick="window.uploadToDrive('${p.nama}')" class="flex-1 bg-orange-50 text-orange-600 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all">
+                <button onclick="window.uploadToDrive('${p.nama}')" class="flex-1 bg-orange-50 text-orange-600 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 active:scale-95 transition-all hover:bg-orange-100">
                     <span>☁️</span> Upload Drive
                 </button>
             </div>
@@ -224,7 +226,7 @@ window.uploadToDrive = (namaUser) => {
     if (link) {
         window.open(link, '_blank');
     } else {
-        alert(`❌ Maaf, Link Google Drive untuk nama "${namaUser}" tidak ditemukan. Pastikan nama di profil sesuai dengan data pusat.`);
+        alert(`❌ Maaf, Link Google Drive untuk nama "${namaUser}" tidak ditemukan. Pastikan nama profil Anda sesuai dengan data di pusat.`);
     }
 };
 
@@ -240,7 +242,7 @@ window.lihatProfil = async (uid) => {
         document.getElementById('viewProfilNama').textContent = d.name || "Tanpa Nama";
         document.getElementById('viewProfilJabatan').textContent = d.role || "Anggota";
         document.getElementById('viewProfilBio').textContent = d.bio || "Tidak ada bio.";
-        document.getElementById('viewProfilInisial').textContent = d.name ? d.name[0] : "A";
+        document.getElementById('viewProfilInisial').textContent = d.name ? d.name[0].toUpperCase() : "A";
         document.getElementById('viewProfilSosmed').innerHTML = `
             ${d.sosmed?.wa ? `<a href="https://wa.me/${d.sosmed.wa}" target="_blank" class="p-3 bg-green-500 text-white rounded-full text-xs shadow-md">WA</a>` : ''}
             ${d.sosmed?.ig ? `<a href="${d.sosmed.ig}" target="_blank" class="p-3 bg-pink-500 text-white rounded-full text-xs shadow-md">IG</a>` : ''}
@@ -280,7 +282,7 @@ document.getElementById('formKomentar').onsubmit = async (e) => {
 };
 
 // === LOGOUT & PROFIL ===
-document.getElementById('btnLogout').onclick = () => { if(confirm("Keluar aplikasi?")){ localStorage.clear(); location.reload(); }};
+document.getElementById('btnLogout').onclick = () => { if(confirm("Yakin ingin keluar aplikasi?")){ localStorage.clear(); location.reload(); }};
 document.getElementById('formProfil').onsubmit = async (e) => {
     e.preventDefault();
     const up = { bio: document.getElementById('editBio').value, sosmed: { wa: document.getElementById('editWA').value, ig: document.getElementById('editIG').value } };
@@ -292,24 +294,33 @@ function loadProfilData(u) {
     document.getElementById('profilNama').textContent = u.name;
     document.getElementById('profilJabatan').textContent = u.role;
     document.getElementById('profilBio').textContent = u.bio || "Ketuk edit untuk menambah bio.";
-    document.getElementById('profilInisial').textContent = u.name ? u.name[0] : "A";
+    document.getElementById('profilInisial').textContent = u.name ? u.name[0].toUpperCase() : "A";
 }
 
 // === UPLOAD LAPORAN KAMERA ===
 btnUploadKegiatan.onclick = async () => {
-    const desc = prompt("📝 Buat dokumentasi laporan:");
+    const desc = prompt("📝 Buat deskripsi laporan:");
     if(!desc) return;
     const btnContent = btnUploadKegiatan.innerHTML;
-    btnUploadKegiatan.innerHTML = `<span class="animate-spin text-sm">⌛</span>`;
+    btnUploadKegiatan.innerHTML = `<span class="animate-spin text-sm">⌛</span> <span class="text-[10px] font-bold tracking-wide uppercase">MEMBUKA KAMERA...</span>`;
     btnUploadKegiatan.classList.add('pointer-events-none');
+    
     try {
         const loc = await getCurrentLocation();
         const foto = await openCameraAndCapture(currentUser, loc);
+        
+        btnUploadKegiatan.innerHTML = `<span class="animate-spin text-sm">⌛</span> <span class="text-[10px] font-bold tracking-wide uppercase">MENGIRIM...</span>`;
+        
         await addDoc(collection(db, "kegiatan"), {
             deviceId: currentUser.deviceId, nama: currentUser.name, jabatan: currentUser.role, kecamatan: currentUser.kecamatan, desa: currentUser.desa,
             deskripsi: desc, fotoUrl: foto, lokasi: loc, waktu: serverTimestamp(), likes: [], komentarCount: 0
         });
         switchTab('beranda');
-        btnUploadKegiatan.innerHTML = btnContent; btnUploadKegiatan.classList.remove('pointer-events-none');
-    } catch (e) { alert("Pengambilan foto dibatalkan / Gagal: " + e); btnUploadKegiatan.innerHTML = btnContent; btnUploadKegiatan.classList.remove('pointer-events-none'); }
+        btnUploadKegiatan.innerHTML = btnContent; 
+        btnUploadKegiatan.classList.remove('pointer-events-none');
+    } catch (e) { 
+        console.log("Kamera dibatalkan / gagal:", e); 
+        btnUploadKegiatan.innerHTML = btnContent; 
+        btnUploadKegiatan.classList.remove('pointer-events-none'); 
+    }
 };
