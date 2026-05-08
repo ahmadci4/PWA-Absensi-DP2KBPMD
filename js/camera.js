@@ -6,7 +6,7 @@ export function openCameraAndCapture(userData, locationData) {
         modal.className = 'fixed inset-0 bg-black z-[999] flex flex-col';
         modal.innerHTML = `
             <div class="flex-1 relative overflow-hidden bg-black flex items-center justify-center">
-                <video id="cameraStream" autoplay playsinline class="w-full h-full object-cover z-10"></video>
+                <video id="cameraStream" autoplay playsinline muted class="w-full h-full object-cover z-10"></video>
                 <canvas id="captureCanvas" class="hidden"></canvas>
                 <img id="photoPreview" class="hidden w-full h-full object-cover z-20">
                 
@@ -14,7 +14,7 @@ export function openCameraAndCapture(userData, locationData) {
                     <span class="text-white/80 text-[10px] bg-black/50 backdrop-blur px-3 py-1.5 rounded-full uppercase tracking-widest font-bold">Dokumentasi Laporan</span>
                 </div>
 
-                <button id="btnFlipCamera" class="absolute top-6 right-6 bg-black/50 text-white p-3 rounded-full z-30 border border-white/20">
+                <button id="btnFlipCamera" class="absolute top-6 right-6 bg-black/50 text-white p-3 rounded-full z-30 border border-white/20 active:scale-90 transition-transform">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </button>
             </div>
@@ -22,15 +22,16 @@ export function openCameraAndCapture(userData, locationData) {
             <div id="cameraControls" class="h-44 bg-gray-900 flex flex-col items-center justify-center pb-6 z-30">
                 <div class="flex items-center justify-between w-full px-8">
                     <button id="btnCloseCam" class="text-white/70 text-sm font-bold py-2">BATAL</button>
-                    <button id="btnCapture" class="w-20 h-20 bg-white rounded-full border-[6px] border-gray-700 shadow-xl active:scale-90"></button>
-                    <div class="w-12"></div> </div>
+                    <button id="btnCapture" class="w-20 h-20 bg-white rounded-full border-[6px] border-gray-700 shadow-xl active:scale-90 transition-transform"></button>
+                    <div class="w-12"></div>
+                </div>
             </div>
 
             <div id="confirmControls" class="hidden h-44 bg-gray-900 flex flex-col items-center justify-center gap-4 pb-6 z-30">
                 <p class="text-white/80 text-[10px] font-bold tracking-widest uppercase">Foto sudah jelas?</p>
                 <div class="flex items-center gap-4 w-full px-6">
-                    <button id="btnRetake" class="flex-1 bg-white/10 text-white font-bold py-3.5 rounded-xl border border-white/20 text-sm uppercase">Ulangi</button>
-                    <button id="btnConfirm" class="flex-1 bg-primary text-white font-bold py-3.5 rounded-xl text-sm uppercase">Kirim Foto</button>
+                    <button id="btnRetake" class="flex-1 bg-white/10 text-white font-bold py-3.5 rounded-xl border border-white/20 text-sm uppercase active:scale-95 transition-transform">Ulangi</button>
+                    <button id="btnConfirm" class="flex-1 bg-primary text-white font-bold py-3.5 rounded-xl text-sm uppercase shadow-lg active:scale-95 transition-transform">Kirim Foto</button>
                 </div>
             </div>
         `;
@@ -64,8 +65,11 @@ export function openCameraAndCapture(userData, locationData) {
                 };
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = stream;
+                // PERBAIKAN: Paksa putar video untuk HP
+                video.play().catch(e => console.log("Play error:", e));
             } catch (err) {
-                alert("Kamera error. Pastikan izin kamera sudah diberikan di browser Anda.");
+                alert("Kamera gagal diakses. Pastikan izin kamera aktif di browser atau HP Anda.");
+                reject(err);
             }
         }
 
